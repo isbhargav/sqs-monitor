@@ -216,9 +216,9 @@ fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect) {
 
     let filter_status = if app.filter_non_empty { "ON" } else { "OFF" };
 
-    let status_text = if app.awaiting_purge_confirmation {
-        // Show confirmation prompt
-        format!("{}", app.status_message)
+    let status_text = if app.awaiting_purge_confirmation || app.purge_in_progress {
+        // Show confirmation prompt or purge-in-progress message
+        app.status_message.clone()
     } else {
         // Normal status
         format!(
@@ -227,7 +227,7 @@ fn draw_status_bar(frame: &mut Frame, app: &App, area: Rect) {
         )
     };
 
-    let status_style = if app.awaiting_purge_confirmation {
+    let status_style = if app.awaiting_purge_confirmation || app.purge_in_progress {
         Style::default()
             .fg(Color::Yellow)
             .add_modifier(Modifier::BOLD)

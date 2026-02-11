@@ -15,6 +15,7 @@ pub struct App {
     pub should_quit: bool,
     pub filter_non_empty: bool,
     pub awaiting_purge_confirmation: bool,
+    pub purge_in_progress: bool,
     sqs_client: SqsClient,
 }
 
@@ -32,6 +33,7 @@ impl App {
             should_quit: false,
             filter_non_empty: false,
             awaiting_purge_confirmation: false,
+            purge_in_progress: false,
             sqs_client,
         })
     }
@@ -159,27 +161,34 @@ impl App {
         }
     }
 
-    pub async fn confirm_purge(&mut self) -> Result<()> {
+    pub fn begin_purge(&mut self) -> Option<(String, String)> {
         self.awaiting_purge_confirmation = false;
 
         if let Some(queue) = self.selected_queue() {
             let queue_name = queue.name.clone();
             let queue_url = queue.url.clone();
 
+            self.purge_in_progress = true;
             self.status_message = format!("Purging queue '{}'...", queue_name);
+            Some((queue_url, queue_name))
+        } else {
+            None
+        }
+    }
 
-            match self.sqs_client.purge_queue(&queue_url).await {
-                Ok(_) => {
-                    self.status_message = format!("Queue '{}' purged successfully", queue_name);
-                    // Refresh queues to show updated counts
-                    self.refresh_queues().await?;
-                }
-                Err(e) => {
-                    self.status_message = format!("Failed to purge queue '{}': {}", queue_name, e);
-                }
+    pub async fn execute_purge(&mut self, queue_url: &str, queue_name: &str) -> Result<()> {
+        match self.sqs_client.purge_queue(queue_url).await {
+            Ok(_) => {
+                self.status_message = format!("Queue '{}' purged successfully", queue_name);
+                // Refresh queues to show updated counts
+                self.refresh_queues().await?;
+            }
+            Err(e) => {
+                self.status_message = format!("Failed to purge queue '{}': {}", queue_name, e);
             }
         }
 
+        self.purge_in_progress = false;
         Ok(())
     }
 

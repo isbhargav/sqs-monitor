@@ -92,7 +92,11 @@ async fn run_app(
                 }
                 AppEvent::ConfirmPurge => {
                     if app.awaiting_purge_confirmation {
-                        app.confirm_purge().await?;
+                        if let Some((url, name)) = app.begin_purge() {
+                            // Re-render to show "Purging..." before blocking on API call
+                            terminal.draw(|f| ui::draw(f, app))?;
+                            app.execute_purge(&url, &name).await?;
+                        }
                         *last_auto_refresh = Instant::now();
                     }
                 }
